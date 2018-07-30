@@ -113,9 +113,10 @@ class KubernetesHTTPAdapterSendMixin(object):
                     )
         elif config.user.get("username") and config.user.get("password"):
             request.prepare_auth((config.user["username"], config.user["password"]))
-            # support AWS EKS
         elif config.user.get("exec") and "command" in config.user.get("exec"):
-            request = self._auth_heptio(request, config)
+            # support AWS EKS via the standard heptio-authenticator-aws method
+            if config.user['exec']['command'] == 'heptio-authenticator-aws':
+                request = self._auth_heptio(request, config)
 
         return request, retry_func
 
