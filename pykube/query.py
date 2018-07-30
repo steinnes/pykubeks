@@ -106,6 +106,7 @@ class Query(BaseQuery):
         if self.namespace is not None and self.namespace is not all_:
             kwargs["namespace"] = self.namespace
         r = self.api.get(**kwargs)
+        print r.content
         r.raise_for_status()
         return r
 

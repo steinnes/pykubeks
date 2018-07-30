@@ -63,19 +63,26 @@ class KubernetesHTTPAdapterSendMixin(object):
 
         return retry
 
-    def send(self, request, **kwargs):
-        if "kube_config" in kwargs:
-            config = kwargs.pop("kube_config")
-        else:
-            config = self.kube_config
+    def _auth_heptio(self, request, config):
+        user = config.user
+        try:
+            cmd = user['exec']['command']
+            args = user['exec']['args']
+            output = subprocess.check_output([cmd] + args)
+            parsed = json.loads(output)
+            return self._auth_token(request, parsed['status']['token'])
+        except Exception as e:
+            print e
+            raise ImportError("Unable to retrieve token using exec command")
 
-        _retry_attempt = kwargs.pop("_retry_attempt", 0)
+    def _auth_token(self, request, token):
+        request.headers["Authorization"] = "Bearer {}".format(token)
+        return request
+
+    def _setup_auth(self, request, config):
         retry_func = None
-
-        # setup cluster API authentication
-
         if "token" in config.user and config.user["token"]:
-            request.headers["Authorization"] = "Bearer {}".format(config.user["token"])
+            request = self._auth_token(request, config.user["token"])
         elif "auth-provider" in config.user:
             auth_provider = config.user["auth-provider"]
             if auth_provider.get("name") == "gcp":
@@ -104,17 +111,33 @@ class KubernetesHTTPAdapterSendMixin(object):
                         auth_config.get("expiry"),
                         config,
                     )
-            # @@@ support oidc
-        elif "client-certificate" in config.user:
+        elif config.user.get("username") and config.user.get("password"):
+            request.prepare_auth((config.user["username"], config.user["password"]))
+            # support AWS EKS
+        elif config.user.get("exec") and "command" in config.user.get("exec"):
+            request = self._auth_heptio(request, config)
+
+        return request, retry_func
+
+    def send(self, request, **kwargs):
+        if "kube_config" in kwargs:
+            config = kwargs.pop("kube_config")
+        else:
+            config = self.kube_config
+
+        _retry_attempt = kwargs.pop("_retry_attempt", 0)
+        retry_func = None
+
+        # setup cluster API authentication
+        request, retry_func = self._setup_auth(request, config)
+        # @@@ support oidc
+        if "client-certificate" in config.user:
             kwargs["cert"] = (
                 config.user["client-certificate"].filename(),
                 config.user["client-key"].filename(),
             )
-        elif config.user.get("username") and config.user.get("password"):
-            request.prepare_auth((config.user["username"], config.user["password"]))
 
         # setup certificate verification
-
         if "certificate-authority" in config.cluster:
             kwargs["verify"] = config.cluster["certificate-authority"].filename()
         elif "insecure-skip-tls-verify" in config.cluster:
