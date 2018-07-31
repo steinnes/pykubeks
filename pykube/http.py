@@ -71,8 +71,7 @@ class KubernetesHTTPAdapterSendMixin(object):
             output = subprocess.check_output([cmd] + args)
             parsed = json.loads(output)
             return self._auth_token(request, parsed['status']['token'])
-        except Exception as e:
-            print e
+        except Exception:
             raise ImportError("Unable to retrieve token using exec command")
 
     def _auth_token(self, request, token):
