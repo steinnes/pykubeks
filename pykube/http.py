@@ -63,16 +63,14 @@ class KubernetesHTTPAdapterSendMixin(object):
 
         return retry
 
-    def _auth_heptio(self, request, config):
-        user = config.user
+    def _auth_exec_plugins(self, request, config):
+        plugin = AuthExecPlugin(config)
         try:
-            cmd = user['exec']['command']
-            args = user['exec']['args']
-            output = subprocess.check_output([cmd] + args)
-            parsed = json.loads(output)
-            return self._auth_token(request, parsed['status']['token'])
-        except Exception:
-            raise ImportError("Unable to retrieve token using exec command")
+            token = plugin.execute()
+        except AuthPluginFailed as e:
+            raise ImportError("Unable to retrive auth bearer token from exec plugin: {}".format(str(e)))
+
+        return self._auth_token(request, token)
 
     def _auth_token(self, request, token):
         request.headers["Authorization"] = "Bearer {}".format(token)
@@ -113,9 +111,7 @@ class KubernetesHTTPAdapterSendMixin(object):
         elif config.user.get("username") and config.user.get("password"):
             request.prepare_auth((config.user["username"], config.user["password"]))
         elif config.user.get("exec") and "command" in config.user.get("exec"):
-            # support AWS EKS via the standard heptio-authenticator-aws method
-            if config.user['exec']['command'] == 'heptio-authenticator-aws':
-                request = self._auth_heptio(request, config)
+            request = self._auth_exec_plugins(request, config)
 
         return request, retry_func
 
@@ -343,3 +339,75 @@ class HTTPClient(object):
            - `kwargs`: Keyword arguments
         """
         return self.session.delete(*args, **self.get_kwargs(**kwargs))
+
+
+class AuthPluginFailed(Exception):
+    def __init__(self, command, message):
+        super(AuthPluginFailed, self).__init__(
+            "Exec plugin failed: '{}' - {}".format(command, message)
+        )
+
+
+class AuthPluginExecFailed(AuthPluginFailed):
+    def __init__(self, command, message):
+        super(AuthPluginExecFailed, self).__init__(command, 'subprocess error: {}'.format(message))
+
+
+class AuthPluginParsingFailed(AuthPluginFailed):
+    def __init__(self, command, message):
+        super(AuthPluginParsingFailed, self).__init__(command, 'parsing failed: {}'.format(message))
+
+
+class AuthPluginVersionFailed(AuthPluginFailed):
+    def __init__(self, command, message):
+        super(AuthPluginVersionFailed, self).__init__(command, 'api version mismatch: {}'.format(message))
+
+
+class AuthExecPlugin(object):
+    def __init__(self, config):
+        self._exec = config.user['exec']
+        self.command = self.build_command()
+
+    def build_command(self):
+        cmd = [self._exec['command']]
+        if 'args' in self._exec:
+            cmd += self._exec['args']
+        return cmd
+
+    def parse(self, output):
+        try:
+            parsed = json.loads(output)
+        except ValueError as e:
+            raise AuthPluginParsingFailed(self.command, str(e))
+
+        try:
+            if parsed["kind"] != 'ExecCredential':
+                raise AuthPluginParsingFailed(
+                    self.command,
+                    "expected 'kind' to be 'ExecCredential', was: {}".format(parsed["kind"])
+                )
+        except KeyError as e:
+            raise AuthPluginParsingFailed(self.command, str(e))
+
+        try:
+            if parsed['apiVersion'] != self._exec['apiVersion']:
+                raise AuthPluginVersionFailed(
+                    self.command,
+                    "expected: '{}', got: '{}'".format(self._exec['apiVersion'], parsed['apiVersion'])
+                )
+        except KeyError as e:
+            raise AuthPluginParsingFailed(self.command, str(e))
+        return parsed
+
+    def execute(self):
+        try:
+            output = subprocess.check_output(self.command)
+        except Exception as e:
+            raise AuthPluginExecFailed(self.command, str(e))
+        parsed = self.parse(output)
+        if 'token' not in parsed['status']:
+            raise AuthPluginFailed(
+                self.command,
+                "token not found in auth plugin response.  pykube only supports plugins supplying bearer tokens."
+            )
+        return parsed["status"]["token"]

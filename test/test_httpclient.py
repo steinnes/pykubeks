@@ -7,36 +7,9 @@ import logging
 import mock
 import pykube
 
-from . import TestCase
+from . import BASE_CONFIG, TestCase
+from .fixtures import AUTHPLUGIN_FIXTURE
 
-BASE_CONFIG = {
-    "clusters": [
-        {
-            "name": "test-cluster",
-            "cluster": {
-                "server": "http://localhost:8080",
-            }
-        }
-    ],
-    "contexts": [
-        {
-            "name": "test-cluster",
-            "context": {
-                "cluster": "test-cluster",
-                "user": "test-user",
-            }
-        }
-    ],
-    "users": [
-        {
-            'name': 'test-user',
-            'user': {},
-        }
-    ],
-    "current-context": "test-cluster",
-}
-
-HEPTIO_FIXTURE = '{"kind":"ExecCredential","apiVersion":"client.authentication.k8s.io/v1alpha1","spec":{},"status":{"token":"test"}}'
 
 _log = logging.getLogger(__name__)
 
@@ -141,6 +114,7 @@ class TestHTTPAdapterSendMixin(TestCase):
                     'user': {
                         'exec': {
                             'command': 'heptio-authenticator-aws',
+                            'apiVersion': 'client.authentication.k8s.io/v1alpha1',
                             'args': [
                                 "token",
                                 "-i",
@@ -153,7 +127,7 @@ class TestHTTPAdapterSendMixin(TestCase):
         })
         _log.info('Built config: %s', self.config)
         with mock.patch('pykube.http.subprocess') as mock_subprocess:
-            mock_subprocess.check_output = mock.Mock(return_value=HEPTIO_FIXTURE)
+            mock_subprocess.check_output = mock.Mock(return_value=AUTHPLUGIN_FIXTURE)
             adapter = pykube.http.KubernetesHTTPAdapterSendMixin()
             request, _ = adapter._setup_auth(self.request, pykube.KubeConfig(doc=self.config))
             _log.debug('Checking headers %s', request.headers)
