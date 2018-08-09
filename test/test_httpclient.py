@@ -106,7 +106,7 @@ class TestHTTPAdapterSendMixin(TestCase):
         self.assertIn('Authorization', request.headers)
         self.assertEqual(request.headers['Authorization'], 'Bearer test')
 
-    def test_heptio_auth(self):
+    def test_exec_plugin_auth(self):
         self.config.update({
             'users': [
                 {
