@@ -160,7 +160,7 @@ Certificate of Origin v1.1` (also included in this repository under DCO.txt).
 
 ## Code of Conduct
 
-[Contributor Covenant Code of Conduct] (http://contributor-covenant.org/version/1/4/)
+[Contributor Covenant Code of Conduct](http://contributor-covenant.org/version/1/4/)
 
 
 ## Commercial Support
