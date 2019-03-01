@@ -3,7 +3,7 @@ import sys
 from setuptools import setup, find_packages
 
 
-with open("README.rst") as fp:
+with open("README.md") as fp:
     long_description = fp.read()
 
 install_requires = [
@@ -19,14 +19,14 @@ if sys.version_info < (3,):
     ])
 
 setup(
-    name="pykube",
-    version="0.16a1",
-    description="Python client library for Kubernetes",
+    name="pykubeks",
+    version="0.1.0a1",
+    description="Python client library for Kubernetes w/ EKS support",
     long_description=long_description,
-    author="Eldarion, Inc.",
-    author_email="development@eldarion.com",
+    author="Steinn Eldjárn Sigurðarson",
+    author_email="steinnes@gmail.com",
     license="Apache",
-    url="https://github.com/kelproject/pykube",
+    url="https://github.com/steinnes/pykubeks",
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Environment :: Web Environment",
