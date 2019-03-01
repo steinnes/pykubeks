@@ -2,9 +2,13 @@
 
 This is a fork of the pykube which is no longer maintained.
 
+If you are interested in who brought this lovely little library into the
+world, please check out [The Kel Project](https://github.com/kelproject).
+
 The reason for this fork is to release the AWS EKS support I wrote for
 the original project, before it was abandoned.
 
+So the new name `pykubeks` is a portmanteau of `pykube` and `EKS`.
 
 ## Features
 
@@ -147,15 +151,12 @@ The code in this project is licensed under the Apache License, version 2.0
 ## Contributing
 
 By making a contribution to this project, you are agreeing to the `Developer
-Certificate of Origin v1.1`_ (also included in this repository under DCO.txt).
+Certificate of Origin v1.1` (also included in this repository under DCO.txt).
 
 [Developer Certificate of Origin v1.1](http://developercertificate.org)
 
 
 ## Code of Conduct
-
-In order to foster a kind, inclusive, and harassment-free community, the Kel
-Project follows the `Contributor Covenant Code of Conduct`_.
 
 [Contributor Covenant Code of Conduct] (http://contributor-covenant.org/version/1/4/)
 
