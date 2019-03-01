@@ -20,7 +20,7 @@ if sys.version_info < (3,):
 
 setup(
     name="pykubeks",
-    version="0.1.0a2",
+    version="0.1.0",
     description="Python client library for Kubernetes w/ EKS support",
     long_description=long_description,
     long_description_content_type='text/markdown',
