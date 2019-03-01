@@ -13,7 +13,7 @@ the original project, before it was abandoned.
 
 ## Installation
 
-To install pykubeks, use pip::
+To install pykubeks, use pip:
 
     pip install pykubeks
 
@@ -118,6 +118,7 @@ Check server version:
 ```python
 api = pykube.HTTPClient(pykube.KubeConfig.from_file("/Users/<username>/.kube/config"))
 api.version
+```
 
 ## HTTPie
 
