@@ -63,19 +63,23 @@ class KubernetesHTTPAdapterSendMixin(object):
 
         return retry
 
-    def send(self, request, **kwargs):
-        if "kube_config" in kwargs:
-            config = kwargs.pop("kube_config")
-        else:
-            config = self.kube_config
+    def _auth_exec_plugins(self, request, config):
+        plugin = AuthExecPlugin(config)
+        try:
+            token = plugin.execute()
+        except AuthPluginFailed as e:
+            raise ImportError("Unable to retrive auth bearer token from exec plugin: {}".format(str(e)))
 
-        _retry_attempt = kwargs.pop("_retry_attempt", 0)
+        return self._auth_token(request, token)
+
+    def _auth_token(self, request, token):
+        request.headers["Authorization"] = "Bearer {}".format(token)
+        return request
+
+    def _setup_auth(self, request, config):
         retry_func = None
-
-        # setup cluster API authentication
-
         if "token" in config.user and config.user["token"]:
-            request.headers["Authorization"] = "Bearer {}".format(config.user["token"])
+            request = self._auth_token(request, config.user["token"])
         elif "auth-provider" in config.user:
             auth_provider = config.user["auth-provider"]
             if auth_provider.get("name") == "gcp":
@@ -104,17 +108,32 @@ class KubernetesHTTPAdapterSendMixin(object):
                         auth_config.get("expiry"),
                         config,
                     )
-            # @@@ support oidc
-        elif "client-certificate" in config.user:
+        elif config.user.get("username") and config.user.get("password"):
+            request.prepare_auth((config.user["username"], config.user["password"]))
+        elif config.user.get("exec") and "command" in config.user.get("exec"):
+            request = self._auth_exec_plugins(request, config)
+
+        return request, retry_func
+
+    def send(self, request, **kwargs):
+        if "kube_config" in kwargs:
+            config = kwargs.pop("kube_config")
+        else:
+            config = self.kube_config
+
+        _retry_attempt = kwargs.pop("_retry_attempt", 0)
+        retry_func = None
+
+        # setup cluster API authentication
+        request, retry_func = self._setup_auth(request, config)
+        # @@@ support oidc
+        if "client-certificate" in config.user:
             kwargs["cert"] = (
                 config.user["client-certificate"].filename(),
                 config.user["client-key"].filename(),
             )
-        elif config.user.get("username") and config.user.get("password"):
-            request.prepare_auth((config.user["username"], config.user["password"]))
 
         # setup certificate verification
-
         if "certificate-authority" in config.cluster:
             kwargs["verify"] = config.cluster["certificate-authority"].filename()
         elif "insecure-skip-tls-verify" in config.cluster:
@@ -320,3 +339,75 @@ class HTTPClient(object):
            - `kwargs`: Keyword arguments
         """
         return self.session.delete(*args, **self.get_kwargs(**kwargs))
+
+
+class AuthPluginFailed(Exception):
+    def __init__(self, command, message):
+        super(AuthPluginFailed, self).__init__(
+            "Exec plugin failed: '{}' - {}".format(command, message)
+        )
+
+
+class AuthPluginExecFailed(AuthPluginFailed):
+    def __init__(self, command, message):
+        super(AuthPluginExecFailed, self).__init__(command, 'subprocess error: {}'.format(message))
+
+
+class AuthPluginParsingFailed(AuthPluginFailed):
+    def __init__(self, command, message):
+        super(AuthPluginParsingFailed, self).__init__(command, 'parsing failed: {}'.format(message))
+
+
+class AuthPluginVersionFailed(AuthPluginFailed):
+    def __init__(self, command, message):
+        super(AuthPluginVersionFailed, self).__init__(command, 'api version mismatch: {}'.format(message))
+
+
+class AuthExecPlugin(object):
+    def __init__(self, config):
+        self._exec = config.user['exec']
+        self.command = self.build_command()
+
+    def build_command(self):
+        cmd = [self._exec['command']]
+        if 'args' in self._exec:
+            cmd += self._exec['args']
+        return cmd
+
+    def parse(self, output):
+        try:
+            parsed = json.loads(output)
+        except ValueError as e:
+            raise AuthPluginParsingFailed(self.command, str(e))
+
+        try:
+            if parsed["kind"] != 'ExecCredential':
+                raise AuthPluginParsingFailed(
+                    self.command,
+                    "expected 'kind' to be 'ExecCredential', was: {}".format(parsed["kind"])
+                )
+        except KeyError as e:
+            raise AuthPluginParsingFailed(self.command, str(e))
+
+        try:
+            if parsed['apiVersion'] != self._exec['apiVersion']:
+                raise AuthPluginVersionFailed(
+                    self.command,
+                    "expected: '{}', got: '{}'".format(self._exec['apiVersion'], parsed['apiVersion'])
+                )
+        except KeyError as e:
+            raise AuthPluginParsingFailed(self.command, str(e))
+        return parsed
+
+    def execute(self):
+        try:
+            output = subprocess.check_output(self.command)
+        except Exception as e:
+            raise AuthPluginExecFailed(self.command, str(e))
+        parsed = self.parse(output)
+        if 'token' not in parsed['status']:
+            raise AuthPluginFailed(
+                self.command,
+                "token not found in auth plugin response.  pykube only supports plugins supplying bearer tokens."
+            )
+        return parsed["status"]["token"]

@@ -2,6 +2,7 @@
 pykube.http unittests
 """
 
+import mock
 import os
 
 from pykube.http import HTTPClient
@@ -24,4 +25,7 @@ class TestHttp(TestCase):
         """
         """
         session = HTTPClient(self.cfg).session
-        self.assertEqual(session.auth, ('adm', 'somepassword'))
+        for adapter in ('https://', 'http://'):
+            adapter = session.adapters[adapter]
+            request, _ = adapter._setup_auth(mock.Mock(), self.cfg)
+            request.prepare_auth.assert_called_with(('adm', 'somepassword'))
