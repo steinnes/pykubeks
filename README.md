@@ -1,14 +1,16 @@
 # pykubeks
-
-This is a fork of the pykube which is no longer maintained.
-
-If you are interested in who brought this lovely little library into the
-world, please check out [The Kel Project](https://github.com/kelproject).
+This is a fork of [pykube](https://github.com/kelproject/pykube) which
+is no longer maintained.  If you are interested in who brought that
+lovely little library into the world, please check out [The Kel Project](https://github.com/kelproject).
 
 The reason for this fork is to release the AWS EKS support I wrote for
-the original project, before it was abandoned.
+the original project, before it was abandoned.  The new name `pykubeks`
+is a portmanteau of `pykube` and `EKS`.
 
-So the new name `pykubeks` is a portmanteau of `pykube` and `EKS`.
+The python package name is still the same to make it simpler to "upgrade"
+to this new version which supports user credentials supplied from client-go
+credential plugins.  See [k8s documentation](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#client-go-credential-plugins)
+for details.
 
 ## Features
 
