@@ -1,4 +1,9 @@
 # pykubeks
+[![CircleCI](https://circleci.com/gh/steinnes/pykubeks.svg?style=svg)](https://circleci.com/gh/steinnes/pykubeks)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/pykubeks.svg)](https://pypi.org/project/pykubeks/)
+[![PyPI Version](https://img.shields.io/pypi/v/pykubeks.svg)](https://pypi.org/project/pykubeks/)
+[![License](https://img.shields.io/badge/license-apache-blue.svg)](https://pypi.org/project/pykubeks/)
+
 This is a fork of [pykube](https://github.com/kelproject/pykube) which
 is no longer maintained.  If you are interested in who brought that
 lovely little library into the world, please check out [The Kel Project](https://github.com/kelproject).
